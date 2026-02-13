@@ -2,6 +2,13 @@ package merkletree
 
 import "crypto/sha256"
 
+const (
+	// LeafPrefix is prepended to leaf node data before hashing
+	LeafPrefix = 0x00
+	// InternalPrefix is prepended to internal node hashes before hashing
+	InternalPrefix = 0x01
+)
+
 // MerkleTree is the root node of the tree
 type MerkleTree struct {
 	Root *Node
@@ -42,25 +49,30 @@ func NewMerkleTree(data [][]byte) *MerkleTree {
 // NewNode creates a new Node from the given data
 // For leaf nodes: pass nil for left and right, provide data
 // For internal nodes: pass left and right children, data should be nil
+// Uses domain separation (prefix bytes) to prevent second preimage attacks
 func NewNode(left, right *Node, data []byte) *Node {
 	node := &Node{Left: left, Right: right}
 
-	// Leaf node: hash the data
+	// Leaf node: hash with leaf prefix (0x00 + data)
 	if left == nil && right == nil {
-		hash := sha256.Sum256(data)
+		prefixedData := make([]byte, 1+len(data))
+		prefixedData[0] = LeafPrefix
+		copy(prefixedData[1:], data)
+		hash := sha256.Sum256(prefixedData)
 		node.Hash = hash[:]
 		return node
 	}
 
-	// Internal node: hash the concatenation of children hashes
+	// Internal node: hash with internal prefix (0x01 + left.Hash + right.Hash)
 	if right == nil {
 		right = left
 		node.Right = right
 	}
 
-	combined := make([]byte, 0, len(left.Hash)+len(right.Hash))
-	combined = append(combined, left.Hash...)
-	combined = append(combined, right.Hash...)
+	combined := make([]byte, 1+len(left.Hash)+len(right.Hash))
+	combined[0] = InternalPrefix
+	copy(combined[1:], left.Hash)
+	copy(combined[1+len(left.Hash):], right.Hash)
 	hash := sha256.Sum256(combined)
 	node.Hash = hash[:]
 

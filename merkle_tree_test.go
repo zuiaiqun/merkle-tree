@@ -92,14 +92,18 @@ func TestNewNodeWithOneNilChildDuplicatesNonNil(t *testing.T) {
 }
 
 func hashLeaf(data []byte) []byte {
-	sum := sha256.Sum256(data)
+	prefixedData := make([]byte, 1+len(data))
+	prefixedData[0] = LeafPrefix
+	copy(prefixedData[1:], data)
+	sum := sha256.Sum256(prefixedData)
 	return append([]byte(nil), sum[:]...)
 }
 
 func hashPair(left, right []byte) []byte {
-	combined := make([]byte, 0, len(left)+len(right))
-	combined = append(combined, left...)
-	combined = append(combined, right...)
+	combined := make([]byte, 1+len(left)+len(right))
+	combined[0] = InternalPrefix
+	copy(combined[1:], left)
+	copy(combined[1+len(left):], right)
 	sum := sha256.Sum256(combined)
 	return append([]byte(nil), sum[:]...)
 }
